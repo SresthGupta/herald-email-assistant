@@ -1,0 +1,43 @@
+<!-- User message -->
+<div class="flex justify-end">
+  <div class="max-w-[80%] px-4 py-3 rounded-2xl rounded-tr-md bg-herald-600 text-white text-sm">
+    {{ user_message }}
+  </div>
+</div>
+
+<!-- Assistant message -->
+<div class="flex justify-start gap-3">
+  <div class="flex-shrink-0 w-7 h-7 rounded-full bg-herald-600/20 flex items-center justify-center mt-0.5">
+    <svg class="w-4 h-4 text-herald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+    </svg>
+  </div>
+  <div class="max-w-[80%] space-y-2">
+    <div class="px-4 py-3 rounded-2xl rounded-tl-md bg-slate-800 border border-slate-700 text-slate-100 text-sm">
+      <p class="whitespace-pre-wrap">{{ assistant_message }}</p>
+    </div>
+    {% if email_refs %}
+    <div class="space-y-1.5 pl-1">
+      {% for e in email_refs %}
+      <a href="/email/{{ e.id }}"
+         class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800
+                hover:border-slate-700 transition-colors text-xs group">
+        <span class="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center
+                     {% if e.importance == 'high' %}bg-amber-500/20 text-amber-400
+                     {% else %}bg-herald-600/20 text-herald-400{% endif %}
+                     font-semibold uppercase text-[10px]">
+          {{ (e.from_name or 'X')[0] }}
+        </span>
+        <div class="flex-1 min-w-0">
+          <p class="text-slate-300 truncate group-hover:text-white transition-colors">{{ e.subject }}</p>
+          <p class="text-slate-500 truncate">{{ e.from_name or e.from_address }}</p>
+        </div>
+        <svg class="w-3 h-3 text-slate-600 group-hover:text-slate-400 transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>

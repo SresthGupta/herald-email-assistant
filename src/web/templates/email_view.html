@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}{{ email.subject }} - Herald{% endblock %}
+
+{% block content %}
+<div class="flex-1 pb-24 overflow-y-auto">
+
+  <!-- Header -->
+  <div class="sticky top-0 z-10 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/50 px-5 pt-14 pb-4">
+    <div class="flex items-center gap-3">
+      <a href="/" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors flex-shrink-0">
+        <svg class="w-5 h-5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+        </svg>
+      </a>
+      <div class="flex-1 min-w-0">
+        <p class="text-white font-semibold truncate">{{ email.subject }}</p>
+        <p class="text-slate-400 text-xs">{{ email.from_name or email.from_address }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="px-5 py-4 space-y-4">
+
+    <!-- Email meta -->
+    <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center
+                      {% if email.importance == 'high' %}bg-amber-500/20 text-amber-400
+                      {% elif email.importance == 'low' %}bg-slate-700/50 text-slate-400
+                      {% else %}bg-herald-600/20 text-herald-400{% endif %}
+                      font-semibold text-base uppercase">
+            {{ (email.from_name or 'X')[0] }}
+          </div>
+          <div>
+            <p class="text-white font-semibold text-sm">{{ email.from_name or email.from_address }}</p>
+            <p class="text-slate-400 text-xs">{{ email.from_address }}</p>
+          </div>
+        </div>
+        {% if email.importance == 'high' %}
+        <span class="flex-shrink-0 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">Important</span>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-3 text-xs text-slate-500">
+        <span>{{ email.date }}</span>
+        {% if email.category %}
+        <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 capitalize">{{ email.category }}</span>
+        {% endif %}
+        {% if email.archived %}
+        <span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-500">Archived</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Email body -->
+    <div class="rounded-2xl bg-slate-900 border border-slate-800 p-5">
+      <p class="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">{{ email.body or email.snippet }}</p>
+    </div>
+
+    <!-- Actions -->
+    <div class="space-y-3">
+
+      <!-- Draft reply -->
+      <form action="/drafts/generate/{{ email.id }}" method="post">
+        <button type="submit"
+                class="w-full py-3.5 bg-herald-600 hover:bg-herald-500 active:bg-herald-700
+                       text-white font-semibold rounded-2xl transition-all active:scale-[0.98]
+                       flex items-center justify-center gap-2 shadow-lg shadow-herald-600/20">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+          </svg>
+          Draft AI Reply
+        </button>
+      </form>
+
+      <div class="grid grid-cols-2 gap-3">
+        <!-- View in Gmail -->
+        <a href="{{ gmail_url }}" target="_blank" rel="noopener noreferrer"
+           class="py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700
+                  text-slate-300 font-medium text-sm rounded-2xl transition-all active:scale-[0.98]
+                  flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+          </svg>
+          Open in Gmail
+        </a>
+
+        <!-- Unsubscribe -->
+        <div id="unsub-container-{{ email.id }}">
+          {% if email.category in ['newsletter', 'marketing'] or email.importance == 'low' %}
+          <button hx-post="/unsubscribe/{{ email.id }}"
+                  hx-target="#unsub-container-{{ email.id }}"
+                  hx-swap="innerHTML"
+                  class="w-full py-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-red-900
+                         text-slate-400 hover:text-red-400 font-medium text-sm rounded-2xl transition-all active:scale-[0.98]
+                         flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+            Unsubscribe
+          </button>
+          {% else %}
+          <button disabled
+                  class="w-full py-3 bg-slate-900 border border-slate-800
+                         text-slate-600 font-medium text-sm rounded-2xl cursor-not-allowed
+                         flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+            Unsubscribe
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
