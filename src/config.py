@@ -1,7 +1,9 @@
+from dotenv import load_dotenv
 import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 # App
 APP_NAME = "Herald"
