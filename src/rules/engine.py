@@ -5,7 +5,7 @@ Rules are stored as natural language and converted to structured JSON for fast m
 import json
 import re
 import subprocess
-from ..database import get_db
+from database import get_db
 
 
 def run_claude(prompt: str) -> str:

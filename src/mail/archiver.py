@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-from ..database import get_db
+from database import get_db
 
 
 # ============================================================
