@@ -1,12 +1,22 @@
+import subprocess
 from datetime import date
 from database import get_db
 from ai.classifier import EmailClassifier
-import anthropic
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+
+
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    result = subprocess.run(
+        ["claude", "--print", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout.strip()
 
 
 async def generate_briefing(user_id: int) -> dict:
-    """Generate a daily email briefing using Claude Haiku."""
+    """Generate a daily email briefing using Claude via CLI."""
     today = date.today().isoformat()
 
     # Check for existing briefing
@@ -40,7 +50,6 @@ async def generate_briefing(user_id: int) -> dict:
         }
 
     important_emails = [e for e in emails if e["importance"] == "high"]
-    other_emails = [e for e in emails if e["importance"] != "high"]
 
     # Build prompt
     email_text = ""
@@ -49,8 +58,6 @@ async def generate_briefing(user_id: int) -> dict:
         email_text += f"  Subject: {e['subject']}\n"
         email_text += f"  Preview: {e['snippet'][:150]}\n"
         email_text += f"  Category: {e['category']} | Importance: {e['importance']}\n\n"
-
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 
     prompt = f"""You are Herald, an AI email assistant. Generate a clean, scannable daily email briefing.
 
@@ -71,13 +78,10 @@ Format as clean HTML using <p>, <ul>, <li>, <strong>, <span> tags only.
 Keep it tight and scannable - this should take under 30 seconds to read.
 Use a friendly, professional tone. No em dashes. No markdown."""
 
-    message = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=1500,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    content = run_claude(prompt)
 
-    content = message.content[0].text
+    if not content:
+        content = "<p>Unable to generate briefing. Please try again.</p>"
 
     # Save briefing
     with get_db() as db:

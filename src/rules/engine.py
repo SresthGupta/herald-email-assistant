@@ -1,12 +1,23 @@
 """
-Plain-language rules engine powered by Claude.
+Plain-language rules engine powered by Claude Code CLI.
 Rules are stored as natural language and converted to structured JSON for fast matching.
 """
 import json
 import re
-import anthropic
-from database import get_db
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+import subprocess
+from ..database import get_db
+
+
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    try:
+        result = subprocess.run(
+            ["claude", "--print", prompt],
+            capture_output=True, text=True, timeout=90
+        )
+        return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return ""
 
 
 class RulesEngine:
@@ -77,14 +88,9 @@ class RulesEngine:
 
 async def parse_rule_to_json(rule_text: str) -> str | None:
     """
-    Use Claude to convert a plain-language rule into structured JSON.
+    Use Claude CLI to convert a plain-language rule into structured JSON.
     Returns JSON string or None on failure.
     """
-    if not ANTHROPIC_API_KEY:
-        return None
-
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     prompt = f"""Convert this email rule to JSON. Return only valid JSON.
 
 Rule: "{rule_text}"
@@ -103,17 +109,13 @@ JSON format:
 Examples:
 - "Mark emails from @company.com as important" -> {{"conditions": [{{"field": "from_domain", "operator": "contains", "value": "@company.com"}}], "actions": {{"importance": "high"}}}}
 - "Archive all marketing emails" -> {{"conditions": [{{"field": "subject", "operator": "contains", "value": "unsubscribe"}}], "actions": {{"importance": "low", "category": "marketing"}}}}
-- "Emails with invoice in subject are finance" -> {{"conditions": [{{"field": "subject", "operator": "contains", "value": "invoice"}}], "actions": {{"category": "finance"}}}}
 
 JSON:"""
 
-    message = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    text = run_claude(prompt)
+    if not text:
+        return None
 
-    text = message.content[0].text.strip()
     match = re.search(r'\{[\s\S]+\}', text)
     if match:
         try:

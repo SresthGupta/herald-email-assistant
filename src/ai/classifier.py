@@ -1,6 +1,6 @@
 import json
-import anthropic
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+import re
+import subprocess
 
 IMPORTANCE_LEVELS = ["high", "medium", "low"]
 CATEGORIES = [
@@ -16,7 +16,7 @@ CATEGORIES = [
     "general",
 ]
 
-# Heuristic fast-path to avoid API calls for obvious cases
+# Heuristic fast-path to avoid CLI calls for obvious cases
 MARKETING_KEYWORDS = [
     "unsubscribe", "click here", "limited time", "special offer",
     "% off", "sale ends", "shop now", "free shipping", "promo code",
@@ -24,11 +24,19 @@ MARKETING_KEYWORDS = [
 ]
 
 
-class EmailClassifier:
-    """Classify emails by importance and category using Claude Haiku."""
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    result = subprocess.run(
+        ["claude", "--print", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout.strip()
 
-    def __init__(self):
-        self.client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
+
+class EmailClassifier:
+    """Classify emails by importance and category using Claude via CLI."""
 
     async def classify(self, email: dict) -> tuple[str, str]:
         """Return (importance, category) for an email."""
@@ -37,16 +45,13 @@ class EmailClassifier:
         if fast:
             return fast
 
-        if not self.client:
-            return ("medium", "general")
-
         try:
             return await self._ai_classify(email)
         except Exception:
             return ("medium", "general")
 
     def _fast_classify(self, email: dict) -> tuple[str, str] | None:
-        """Quick rule-based classification to save API calls."""
+        """Quick rule-based classification to save CLI calls."""
         text = (
             (email.get("subject") or "") + " " +
             (email.get("snippet") or "") + " " +
@@ -68,7 +73,7 @@ class EmailClassifier:
         return None
 
     async def _ai_classify(self, email: dict) -> tuple[str, str]:
-        """Use Claude to classify the email."""
+        """Use Claude CLI to classify the email."""
         prompt = f"""Classify this email. Reply with JSON only.
 
 From: {email.get('from_name', '')} <{email.get('from_address', '')}>
@@ -82,15 +87,7 @@ Rules:
 - medium: informational, from known contact, not urgent
 - low: newsletter, marketing, automated notification, receipt"""
 
-        message = self.client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=60,
-            messages=[{"role": "user", "content": prompt}],
-        )
-
-        text = message.content[0].text.strip()
-        # Extract JSON even if there's surrounding text
-        import re
+        text = run_claude(prompt)
         match = re.search(r'\{[^}]+\}', text)
         if match:
             data = json.loads(match.group())

@@ -1,10 +1,9 @@
 """
-AI chat interface: answer questions about the user's email using Claude Haiku.
+AI chat interface: answer questions about the user's email using Claude via CLI.
 """
 import json
-import anthropic
+import subprocess
 from database import get_db
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
 
 
 SYSTEM_PROMPT = """You are Herald, a helpful AI email assistant. You have access to the user's email data and answer questions about their emails.
@@ -18,44 +17,48 @@ When answering:
 - No em dashes"""
 
 
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    result = subprocess.run(
+        ["claude", "--print", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout.strip()
+
+
 async def chat_with_emails(user_id: int, message: str, conversation_history: list[dict] = None) -> dict:
     """
-    Answer a question about the user's emails using Claude Haiku.
+    Answer a question about the user's emails using Claude via CLI.
     Returns the response and any relevant email IDs found.
     """
-    if not ANTHROPIC_API_KEY:
-        return {
-            "response": "AI chat requires an Anthropic API key. Please add ANTHROPIC_API_KEY to your settings.",
-            "emails": [],
-        }
-
     # Search emails relevant to the query
     relevant_emails = search_emails_for_context(user_id, message)
 
     # Build email context
     email_context = build_email_context(relevant_emails)
 
-    # Build conversation
-    messages = conversation_history or []
+    # Build conversation history text
+    history_text = ""
+    if conversation_history:
+        for msg in conversation_history[-6:]:  # Include last 6 turns for context
+            role = "User" if msg["role"] == "user" else "Herald"
+            history_text += f"{role}: {msg['content']}\n\n"
 
-    user_message = f"""User question: {message}
+    prompt = f"""{SYSTEM_PROMPT}
 
-Relevant emails from inbox:
+{history_text}Relevant emails from inbox:
 {email_context}
 
-Answer the user's question based on these emails."""
+User question: {message}
 
-    messages = messages + [{"role": "user", "content": user_message}]
+Answer:"""
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    response = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=800,
-        system=SYSTEM_PROMPT,
-        messages=messages,
-    )
+    answer = run_claude(prompt)
 
-    answer = response.content[0].text
+    if not answer:
+        answer = "I was unable to process your request. Please try again."
 
     return {
         "response": answer,

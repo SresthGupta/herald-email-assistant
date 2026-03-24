@@ -1,7 +1,17 @@
-import anthropic
+import subprocess
 from database import get_db
 from mail.gmail_client import GmailClient
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+
+
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    result = subprocess.run(
+        ["claude", "--print", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout.strip()
 
 
 async def draft_reply(user_id: int, email_id: int, access_token: str) -> dict:
@@ -38,8 +48,6 @@ async def draft_reply(user_id: int, email_id: int, access_token: str) -> dict:
     else:
         style_context = "No writing samples available. Use a clear, professional but friendly tone."
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     prompt = f"""You are a personal email assistant helping {user_name} draft a reply.
 
 Original email:
@@ -59,13 +67,10 @@ Write a natural, helpful reply in the sender's voice. Guidelines:
 
 Reply body only, no subject line:"""
 
-    message = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=600,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    draft_body = run_claude(prompt)
+    if not draft_body:
+        draft_body = "Thank you for your email. I'll get back to you shortly."
 
-    draft_body = message.content[0].text.strip()
     reply_subject = f"Re: {email_data['subject']}"
 
     # Save draft to DB

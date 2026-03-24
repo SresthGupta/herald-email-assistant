@@ -1,10 +1,20 @@
 """
 Learn and store the user's email writing style from their sent emails.
 """
-import anthropic
+import subprocess
 from database import get_db
 from mail.gmail_client import GmailClient
-from config import ANTHROPIC_API_KEY, CLAUDE_MODEL
+
+
+def run_claude(prompt: str) -> str:
+    """Run a prompt through the claude CLI and return the output."""
+    result = subprocess.run(
+        ["claude", "--print", prompt],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout.strip()
 
 
 async def learn_style_from_sent(user_id: int, access_token: str, max_samples: int = 20) -> int:
@@ -53,27 +63,16 @@ def get_style_summary(user_id: int) -> str:
     if not samples:
         return "No writing samples collected yet."
 
-    if not ANTHROPIC_API_KEY:
-        return f"{len(samples)} writing samples collected."
-
     samples_text = "\n\n---\n\n".join(s["sample_text"] for s in samples[:8])
 
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    message = client.messages.create(
-        model=CLAUDE_MODEL,
-        max_tokens=200,
-        messages=[{
-            "role": "user",
-            "content": f"""Describe this person's email writing style in 2-3 sentences. Focus on tone, formality, length, and any distinctive patterns.
+    prompt = f"""Describe this person's email writing style in 2-3 sentences. Focus on tone, formality, length, and any distinctive patterns.
 
 Email samples:
 {samples_text}
 
 Style description:"""
-        }],
-    )
 
-    return message.content[0].text.strip()
+    return run_claude(prompt) or f"{len(samples)} writing samples collected."
 
 
 def get_sample_count(user_id: int) -> int:
